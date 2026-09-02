@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -7,8 +5,6 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
-
-FRONTEND_DIR = Path(__file__).parent / "frontend"
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -33,4 +29,16 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.frontend("/", directory=FRONTEND_DIR)
+
+
+@app.get("/", tags=["root"])
+async def root() -> dict[str, str]:
+    return {"message": f"Welcome to {settings.PROJECT_NAME}. See /docs for the API."}
+
+
+# Plain health endpoint for platform healthchecks (Railway, Docker, k8s).
+# Lives outside the /api/v1 prefix, has no trailing-slash redirect, and is
+# tagged so custom_generate_unique_id can build an OpenAPI ID for it.
+@app.get("/health", tags=["health"])
+async def health() -> bool:
+    return True

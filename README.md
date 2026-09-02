@@ -1,88 +1,97 @@
-# Full Stack FastAPI Template
+# FastAPI MySQL Backend Template
 
-[![Test Docker Compose](../../actions/workflows/test-docker-compose.yml/badge.svg)](../../actions/workflows/test-docker-compose.yml)
-[![Test Backend](../../actions/workflows/test-backend.yml/badge.svg)](../../actions/workflows/test-backend.yml)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.app/new?github_url=https://github.com/lNamelessl/fastapi-mysql-backend)
+
+A **backend-only, MySQL-powered** variant of the official [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template), packaged for **one-click deployment on [Railway](https://railway.app)**.
+
+All frontend code (React, Vite, Playwright, the Bun workspace) and all PostgreSQL specifics have been removed. What remains is a production-ready FastAPI API server with JWT auth, SQLModel ORM, Alembic migrations, and an email stack — wired for MySQL 8.x and Railway's deployment model.
 
 ## Technology Stack and Features
 
 - ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
   - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
   - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
-  - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
-- 🚀 [React](https://react.dev) for the frontend.
-  - 🧩 Built into the backend application and served by FastAPI on the same domain as the API.
-  - 💃 Using TypeScript, hooks, [Vite](https://vitejs.dev), and other parts of a modern frontend stack.
-  - 🎨 [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com) for the frontend components.
-  - 🤖 An automatically generated frontend client.
-  - 🧪 [Playwright](https://playwright.dev) for end-to-end testing.
-  - 🦇 Dark mode support.
-- ☁️ [FastAPI Cloud](https://fastapicloud.com) for deployment.
-- 🐋 [Docker Compose](https://www.docker.com) for local services and self-hosted deployment.
-  - 📞 [Traefik](https://traefik.io) as a reverse proxy with automatic HTTPS.
-- 🔒 Secure password hashing by default.
-- 🔑 JWT (JSON Web Token) authentication.
-- 📫 Email-based password recovery.
-- ✉️ [React Email](https://react.email) for email templates.
-- 📬 [Mailpit](https://mailpit.axllent.org) for local email testing during development.
+  - 💾 **MySQL 8.x** as the SQL database, via [PyMySQL](https://pymysql.readthedocs.io) + `cryptography`.
+- 🔒 Secure password hashing by default (Argon2).
+- 🔑 JWT (JSON Web Token) authentication with OAuth2 password flow.
+- 📫 Email-based password recovery, with Jinja2 HTML templates.
+- 🗃️ [Alembic](https://alembic.sqlalchemy.org) migrations that run automatically on every deploy.
+- 🩺 A redirect-free `GET /health` endpoint for platform healthchecks.
+- 🐋 [Docker Compose](https://www.docker.com) for local development (MySQL + Mailpit).
 - ✅ Tests with [Pytest](https://pytest.org).
-- 🏭 CI (continuous integration) and CD (continuous deployment) based on GitHub Actions.
 
-### Dashboard Login
+## Deploy to Railway
 
-![Dashboard login screenshot](img/login.png)
+The repo root contains a Railway-ready `Dockerfile` and `railway.json`:
 
-### Dashboard - Admin
+- The `Dockerfile` builds the backend (no frontend stage), binds to Railway's `PORT` variable, and runs **migrations + initial seed inside the container start command** (Railway ignores `preDeployCommand` on its Metal/CLI pipeline).
+- `railway.json` configures the Dockerfile builder, a `/health` healthcheck path, and an `ON_FAILURE` restart policy.
 
-![Admin dashboard screenshot](img/dashboard.png)
+### One-click deploy
 
-### Dashboard - Items
+Click the deploy button at the top of this README, or open:
 
-![Items dashboard screenshot](img/dashboard-items.png)
+```
+https://railway.app/new?github_url=https://github.com/lNamelessl/fastapi-mysql-backend
+```
 
-### Dashboard - Dark Mode
+### Manual deploy with the Railway CLI
 
-![Dark mode dashboard screenshot](img/dashboard-dark.png)
+```bash
+railway init --name my-api
+railway add -d mysql          # provisions a MySQL database service
+railway add -s backend        # creates the app service from this repo
+railway variables --set 'DATABASE_URL=${{MySQL.MYSQL_URL}}' \
+  --set "PROJECT_NAME=My API" \
+  --set "SECRET_KEY=$(openssl rand -hex 32)" \
+  --set "FIRST_SUPERUSER=admin@example.com" \
+  --set "FIRST_SUPERUSER_PASSWORD=$(openssl rand -hex 16)" \
+  --service backend
+railway up --service backend
+railway domain                # generate a public URL
+```
 
-### React Email Templates
+After generating a public domain, set it as the allowed CORS origin:
 
-![Email templates screenshot](img/react-email.png)
+```bash
+railway variables --set "FRONTEND_HOST=https://<your-domain>" --service backend --skip-deploy
+```
 
-### Mailpit - Local Email Testing
+**Important**: never set `FASTAPI_ENV` on Railway — config only allows `development` or unset; any other value crash-loops the container at boot.
 
-![Mailpit screenshot](img/mailpit.png)
+On every deploy the container start command runs `alembic upgrade head` (migrations) and seeds the first superuser from `FIRST_SUPERUSER` / `FIRST_SUPERUSER_PASSWORD` if the users table is empty.
 
-### Interactive API Documentation
+## Local Development
 
-![API docs](img/docs.png)
+Read the [development guide](development.md) for the full workflow. Quickstart:
 
-## How to Use It
+```bash
+docker compose up -d db mailpit   # MySQL on localhost:3306, Mailpit UI on :8025
+cd backend
+uv sync
+uv run bash scripts/prestart.sh   # alembic migrations + seed superuser
+uv run fastapi dev --reload
+```
 
-Click the **Use this template** button at the top of this page to create a new repository.
+The default `.env` points the app at `mysql://root:changethis@localhost:3306/app` (matching the compose MySQL). Change `MYSQL_ROOT_PASSWORD` in `.env` if you change one.
 
-## Backend Development
+## Tests
 
-Backend docs: [backend/README.md](./backend/README.md).
+With the local stack up:
 
-## Frontend Development
+```bash
+docker compose up -d --wait db mailpit
+cd backend
+uv run bash scripts/prestart.sh
+uv run bash scripts/tests-start.sh
+```
 
-Frontend docs: [frontend/README.md](./frontend/README.md).
+## How it differs from the upstream template
 
-## Deployment
-
-FastAPI Cloud deployment: [deployment.md](./deployment.md).
-
-Self-hosted deployment with Docker Compose: [deployment-docker-compose.md](./deployment-docker-compose.md).
-
-## Development
-
-General development docs: [development.md](./development.md).
-
-This includes the local FastAPI and Vite workflow, Docker Compose services, `.env` configuration, and more.
-
-## Release Notes
-
-Check the file [release-notes.md](./release-notes.md).
+- **No frontend**: removed `frontend/`, the Bun/npm workspace, React Email packages, Playwright, and the generated client. The API no longer serves a SPA; `GET /` returns a small JSON welcome message.
+- **MySQL instead of PostgreSQL**: `MySQLDsn` config parsing, `mysql+pymysql` driver rewriting, `pool_recycle`/`READ COMMITTED` engine settings, `sa.Uuid()` columns (stored as `CHAR(32)`), and a squashed single initial migration (upstream's int→UUID migration chain relied on the Postgres `uuid-ossp` extension).
+- **Railway packaging**: root `Dockerfile`, `railway.json`, `$PORT` binding, `/health` endpoint, and migrations in the container start command.
 
 ## License
 
-The Full Stack FastAPI Template is licensed under the terms of the MIT license.
+MIT, same as the upstream [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template).

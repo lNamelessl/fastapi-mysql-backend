@@ -1,14 +1,17 @@
-# FastAPI Project - Development
+# FastAPI MySQL Backend - Development
 
 ## Local Development
 
-For local development, run PostgreSQL and Mailpit with Docker Compose, and run the FastAPI and Vite development servers locally.
+Run MySQL and Mailpit with Docker Compose, and run the FastAPI development server locally.
 
 Start the supporting services:
 
 ```bash
 docker compose up -d db mailpit
 ```
+
+- MySQL is available on `localhost:3306` (user `root`, database `app`, password from `MYSQL_ROOT_PASSWORD` in `.env`).
+- Mailpit's inbox UI is at `http://localhost:8025` (SMTP on port `1025`).
 
 Then, from the `backend` directory, install the dependencies and prepare the database:
 
@@ -17,122 +20,51 @@ uv sync
 uv run bash scripts/prestart.sh
 ```
 
+`scripts/prestart.sh` runs the Alembic migrations and creates the first superuser from `FIRST_SUPERUSER` / `FIRST_SUPERUSER_PASSWORD` in `.env`.
+
 Start the FastAPI development server:
 
 ```bash
-uv run fastapi dev
+uv run fastapi dev --reload
 ```
 
-In another terminal, from the project root, install the frontend dependencies and start the Vite development server:
+The API is served at `http://localhost:8000`, the interactive docs at `http://localhost:8000/docs`, and the OpenAPI spec at `http://localhost:8000/api/v1/openapi.json`.
+
+### Full stack in Docker
+
+Alternatively run the whole thing in containers:
 
 ```bash
-bun install
-bun run dev
+docker compose up -d --wait
 ```
 
-Now you can open these URLs:
+The backend listens on `http://localhost:8000`. The `compose.override.yml` override runs it with `fastapi dev`, hot code sync via `docker compose watch`, and Mailpit as the SMTP host.
 
-Frontend development server: <http://localhost:5173>
+## Database Migrations
 
-Backend API: <http://localhost:8000>
+The migration history is a single squashed initial migration (`0001_initial_models.py`) that creates the final schema directly on MySQL — `sa.Uuid()` primary keys (stored as `CHAR(32)`), 255-char varchars, and the `ON DELETE CASCADE` foreign key. Upstream's Postgres migration chain (integer IDs → `uuid-ossp` UUID swap) does not apply to MySQL.
 
-Automatic interactive API documentation with Swagger UI: <http://localhost:8000/docs>
-
-Mailpit: <http://localhost:8025>
-
-The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
-
-### Frontend Served by FastAPI
-
-Build the frontend from the `frontend` directory:
+After changing the SQLModel models in `backend/app/models.py`, autogenerate a migration:
 
 ```bash
-bun run build
+cd backend
+uv run alembic revision --autogenerate -m "describe the change"
+uv run bash scripts/prestart.sh   # apply it
 ```
 
-The build is written to `backend/app/frontend` and served by FastAPI at <http://localhost:8000>. Rebuild the frontend after making frontend changes.
+Note MySQL's Alembic rules: every `op.alter_column` needs `existing_type=`, use `sa.Uuid()` (never `sa.UUID()`), and DDL is non-transactional — if a migration fails halfway, drop and recreate the database before retrying (`docker compose down -v && docker compose up -d db`).
 
-## Full Stack with Docker Compose
+## Emails
 
-To run the backend and built frontend in Docker Compose:
+In development, SMTP points at Mailpit (`SMTP_HOST=mailpit`, port `1025` in the compose override). Emails never leave your machine — inspect them at `http://localhost:8025`.
+
+## Tests
 
 ```bash
-docker compose run --rm backend bash scripts/prestart.sh
-docker compose watch
+docker compose up -d --wait db mailpit
+cd backend
+uv run bash scripts/prestart.sh
+uv run bash scripts/tests-start.sh
 ```
 
-Now you can open these URLs:
-
-Application, with the frontend and API served by FastAPI: <http://localhost:8000>
-
-Automatic interactive API documentation with Swagger UI: <http://localhost:8000/docs>
-
-Adminer, database web administration: <http://localhost:8080>
-
-Traefik UI, to see how the routes are being handled by the proxy: <http://localhost:8090>
-
-Mailpit: <http://localhost:8025>
-
-Stop a locally running FastAPI server before starting the Compose backend because both use port `8000`.
-
-**Note**: The first time you start the stack, it might take a minute for all the services to be ready. To monitor it, use `docker compose logs`, or `docker compose logs backend` for the backend service.
-
-## Mailpit
-
-[Mailpit](https://mailpit.axllent.org) captures emails sent during local development instead of delivering them. The local backend connects to it at `localhost:1025`, and the Compose backend connects to the `mailpit` service. Captured emails are available at <http://localhost:8025>.
-
-## Docker Compose Files and Environment Variables
-
-The main `compose.yml` file contains the configuration shared by the whole stack. Docker Compose loads it automatically.
-
-The `compose.override.yml` file adds local development settings, such as mounting the source code as a volume. Docker Compose also loads it automatically and applies it on top of `compose.yml`.
-
-The `compose.deploy.yml` file contains the deployment-specific settings, including HTTPS and automatic certificate handling. It is explicitly combined with `compose.yml` when deploying the application.
-
-The backend reads local settings from the `.env` file. Docker Compose also uses it for variable interpolation and passes the settings each container needs.
-
-After changing variables, make sure you restart the stack:
-
-```bash
-docker compose watch
-```
-
-## The `.env` File
-
-The tracked `.env` file contains local development defaults, passwords, and other configuration. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
-
-Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
-
-## Pre-commit Hooks and Code Linting
-
-The project uses [prek](https://prek.j178.dev/), a modern alternative to [pre-commit](https://pre-commit.com/), for code linting and formatting.
-
-You can find a file `.pre-commit-config.yaml` with configurations at the root of the project.
-
-### Install `prek` to Run Automatically
-
-`prek` is already part of the dependencies of the project.
-
-From the project root, install the Git hook so that `prek` runs automatically before each commit:
-
-```bash
-uv run prek install -f
-```
-
-The `-f` flag forces the installation, in case there was already a `pre-commit` hook previously installed.
-
-Now whenever you try to commit, for example with:
-
-```bash
-git commit
-```
-
-`prek` will check and format the code you are about to commit. If it modifies any files, add those files to Git again before committing.
-
-### Run `prek` Manually
-
-You can also run `prek` manually on all files from the project root:
-
-```bash
-uv run prek run --all-files
-```
+The test suite runs against the same local MySQL database as development. Coverage HTML lands in `backend/htmlcov`.
