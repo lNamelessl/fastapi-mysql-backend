@@ -124,8 +124,11 @@ class Token(SQLModel):
 
 
 # Contents of JWT token
+# `sub` is a UUID: typed as uuid.UUID (not str) so pydantic coerces the JWT
+# claim before it reaches UUID columns — SQLAlchemy's Uuid bind processor on
+# MySQL requires an actual UUID object, not a string
 class TokenPayload(SQLModel):
-    sub: str | None = None
+    sub: uuid.UUID | None = None
 
 
 class NewPassword(SQLModel):

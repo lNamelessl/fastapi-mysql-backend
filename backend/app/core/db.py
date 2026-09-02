@@ -4,7 +4,16 @@ from app import crud
 from app.core.config import settings
 from app.models import User, UserCreate
 
-engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)
+engine = create_engine(
+    str(settings.DATABASE_URL),
+    pool_pre_ping=True,
+    # MySQL closes idle connections after wait_timeout (default 8h);
+    # recycle before that to avoid "MySQL server has gone away"
+    pool_recycle=3600,
+    # MySQL defaults to REPEATABLE READ, which hides rows committed by
+    # other sessions; READ COMMITTED matches the Postgres behavior
+    isolation_level="READ COMMITTED",
+)
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB
