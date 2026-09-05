@@ -1,6 +1,6 @@
 # FastAPI MySQL Backend — Railway Template
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.app/new?github_url=https://github.com/lNamelessl/fastapi-mysql-backend)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/fastapi-mysql-backend)
 
 A production-ready **FastAPI backend API with MySQL**, derived from the official [Full Stack FastAPI Template](https://github.com/fastapi/full-stack-fastapi-template) (frontend removed, PostgreSQL replaced by MySQL) and packaged for one-click deployment on Railway.
 
