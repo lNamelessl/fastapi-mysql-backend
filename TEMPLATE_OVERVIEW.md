@@ -18,10 +18,11 @@ A production-ready **FastAPI backend API with MySQL**, derived from the official
 ## Deploying
 
 1. Click the deploy button above.
-2. Railway provisions two services from the template: **MySQL** and the **backend** app.
-3. The backend's `DATABASE_URL` is pre-wired to the MySQL service (`${{MySQL.MYSQL_URL}}`); set `PROJECT_NAME`, `SECRET_KEY`, `FIRST_SUPERUSER`, and `FIRST_SUPERUSER_PASSWORD` if the template has not prefilled them.
-4. On boot the container runs `alembic upgrade head` and seeds the first superuser — no manual migration step.
-5. After the first deploy, generate a public domain for the backend and set it as `FRONTEND_HOST` (the CORS allowed origin) so browser clients can call the API.
+2. Railway provisions two services from the template: **MySQL** and the **backend** app, and creates a public domain for the backend.
+3. The deploy form prompts for the required variables. MySQL section: set `MYSQLPORT` `3306`, `MYSQLUSER` `root`, and `MYSQL_DATABASE` `railway` (the standard plugin values). Backend section: set `PROJECT_NAME`, `SECRET_KEY` (e.g. `openssl rand -hex 32`), `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD`, and `FRONTEND_HOST` (the allowed CORS origin — you can update it to the generated domain after deploy).
+4. The backend's `DATABASE_URL` is pre-wired to the MySQL service (`${{MySQL.MYSQL_URL}}`) — nothing to configure there.
+5. On boot the container runs `alembic upgrade head` and seeds the first superuser — no manual migration step.
+6. After the first deploy, set `FRONTEND_HOST` on the backend to the generated domain (e.g. `https://backend-production-xxxx.up.railway.app`) if you will call the API from a browser.
 
 **Never set `FASTAPI_ENV`** on Railway: the config only allows `development` or unset, and any other value crash-loops the container.
 

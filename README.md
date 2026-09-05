@@ -35,6 +35,23 @@ Click the deploy button at the top of this README, or open the template page:
 https://railway.com/deploy/fastapi-mysql-backend
 ```
 
+The deploy form prompts for the template's required variables — the MySQL section only needs the standard plugin values, and the backend section takes your app configuration:
+
+| Service  | Variable                 | Suggested value                                          |
+| -------- | ------------------------ | -------------------------------------------------------- |
+| MySQL    | `MYSQLPORT`              | `3306`                                                   |
+| MySQL    | `MYSQLUSER`              | `root`                                                   |
+| MySQL    | `MYSQL_DATABASE`         | `railway`                                                |
+| backend  | `PROJECT_NAME`           | any name, e.g. `FastAPI MySQL Backend`                    |
+| backend  | `SECRET_KEY`             | generate with `openssl rand -hex 32`                      |
+| backend  | `FIRST_SUPERUSER`        | your admin email, e.g. `admin@example.com`                |
+| backend  | `FIRST_SUPERUSER_PASSWORD` | your admin password (min 8 chars)                       |
+| backend  | `FRONTEND_HOST`          | allowed CORS origin; update to your domain after deploy   |
+
+Deploying provisions both services, creates a public domain for the backend, runs `alembic upgrade head`, and seeds the first superuser — the API is live as soon as the deployment passes its `/health` check. `DATABASE_URL` is wired automatically from the MySQL service (`${{MySQL.MYSQL_URL}}`).
+
+**Important**: never set `FASTAPI_ENV` on Railway — config only allows `development` or unset; any other value crash-loops the container at boot.
+
 ### Manual deploy with the Railway CLI
 
 ```bash
@@ -56,8 +73,6 @@ After generating a public domain, set it as the allowed CORS origin:
 ```bash
 railway variables --set "FRONTEND_HOST=https://<your-domain>" --service backend --skip-deploy
 ```
-
-**Important**: never set `FASTAPI_ENV` on Railway — config only allows `development` or unset; any other value crash-loops the container at boot.
 
 On every deploy the container start command runs `alembic upgrade head` (migrations) and seeds the first superuser from `FIRST_SUPERUSER` / `FIRST_SUPERUSER_PASSWORD` if the users table is empty.
 
