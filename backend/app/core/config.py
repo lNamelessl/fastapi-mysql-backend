@@ -26,7 +26,10 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     FASTAPI_ENV: Literal["development"] | None = None
 
-    PROJECT_NAME: str
+    # Placeholder defaults keep template deployments zero-config: Railway
+    # template deploys prompt for every required variable, so these must not
+    # be required. Override them via environment variables in production.
+    PROJECT_NAME: str = "FastAPI MySQL Backend"
     SENTRY_DSN: HttpUrl | None = None
     DATABASE_URL: MySQLDsn
 
@@ -62,8 +65,11 @@ class Settings(BaseSettings):
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
+    # Placeholders, not secrets: they only seed the FIRST superuser on an
+    # empty database (seeding never updates an existing user). Set
+    # FIRST_SUPERUSER / FIRST_SUPERUSER_PASSWORD before the first deploy.
+    FIRST_SUPERUSER: EmailStr = "admin@example.com"
+    FIRST_SUPERUSER_PASSWORD: str = "ChangeMeBeforeDeploy1"
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
