@@ -35,20 +35,16 @@ Click the deploy button at the top of this README, or open the template page:
 https://railway.com/deploy/fastapi-mysql-backend
 ```
 
-The deploy form prompts for the template's required variables — the MySQL section only needs the standard plugin values, and the backend section takes your app configuration:
+**Deploying requires no variables** — everything is pre-wired or placeholder-defaulted:
 
-| Service  | Variable                 | Suggested value                                          |
-| -------- | ------------------------ | -------------------------------------------------------- |
-| MySQL    | `MYSQLPORT`              | `3306`                                                   |
-| MySQL    | `MYSQLUSER`              | `root`                                                   |
-| MySQL    | `MYSQL_DATABASE`         | `railway`                                                |
-| backend  | `PROJECT_NAME`           | any name, e.g. `FastAPI MySQL Backend`                    |
-| backend  | `SECRET_KEY`             | generate with `openssl rand -hex 32`                      |
-| backend  | `FIRST_SUPERUSER`        | your admin email, e.g. `admin@example.com`                |
-| backend  | `FIRST_SUPERUSER_PASSWORD` | your admin password (min 8 chars)                       |
-| backend  | `FRONTEND_HOST`          | allowed CORS origin; update to your domain after deploy   |
+- `DATABASE_URL` is a live reference to the MySQL service (composed from its private hostname and per-deployment generated root password).
+- `SECRET_KEY` is generated fresh for each deployment via a Railway `secret()` template expression.
+- `FRONTEND_HOST` (the CORS allowed origin) defaults to the backend's own generated domain via `${{RAILWAY_PUBLIC_DOMAIN}}`.
+- `PROJECT_NAME`, `FIRST_SUPERUSER`, and `FIRST_SUPERUSER_PASSWORD` fall back to code placeholders (`FastAPI MySQL Backend`, `admin@example.com`, `ChangeMeBeforeDeploy1`).
 
-Deploying provisions both services, creates a public domain for the backend, runs `alembic upgrade head`, and seeds the first superuser — the API is live as soon as the deployment passes its `/health` check. `DATABASE_URL` is wired automatically from the MySQL service (`${{MySQL.MYSQL_URL}}`).
+Deploying provisions both services, creates a public domain for the backend, creates the database, runs `alembic upgrade head`, and seeds the first superuser — the API is live as soon as the deployment passes its `/health` check, with zero form inputs.
+
+**Recommended before the first deploy** (optional, in the template's variable settings or on the service after deploy): set `FIRST_SUPERUSER` and `FIRST_SUPERUSER_PASSWORD` to real values. Seeding only runs on an empty database and never updates an existing user, so placeholders set the admin credentials for the *first* boot — changing the variables afterwards does not change an already-seeded user (reset via the API or the database).
 
 **Important**: never set `FASTAPI_ENV` on Railway — config only allows `development` or unset; any other value crash-loops the container at boot.
 
@@ -58,12 +54,12 @@ Deploying provisions both services, creates a public domain for the backend, run
 railway init --name my-api
 railway add -d mysql          # provisions a MySQL database service
 railway add -s backend        # creates the app service from this repo
-railway variables --set 'DATABASE_URL=${{MySQL.MYSQL_URL}}' \
-  --set "PROJECT_NAME=My API" \
-  --set "SECRET_KEY=$(openssl rand -hex 32)" \
-  --set "FIRST_SUPERUSER=admin@example.com" \
-  --set "FIRST_SUPERUSER_PASSWORD=$(openssl rand -hex 16)" \
-  --service backend
+railway variable set 'DATABASE_URL=${{MySQL.MYSQL_URL}}' \
+  "PROJECT_NAME=My API" \
+  "SECRET_KEY=$(openssl rand -hex 32)" \
+  "FIRST_SUPERUSER=admin@example.com" \
+  "FIRST_SUPERUSER_PASSWORD=$(openssl rand -hex 16)" \
+  --service backend --skip-deploys
 railway up --service backend
 railway domain                # generate a public URL
 ```
@@ -71,7 +67,7 @@ railway domain                # generate a public URL
 After generating a public domain, set it as the allowed CORS origin:
 
 ```bash
-railway variables --set "FRONTEND_HOST=https://<your-domain>" --service backend --skip-deploy
+railway variable set "FRONTEND_HOST=https://<your-domain>" --service backend --skip-deploys
 ```
 
 On every deploy the container start command runs `alembic upgrade head` (migrations) and seeds the first superuser from `FIRST_SUPERUSER` / `FIRST_SUPERUSER_PASSWORD` if the users table is empty.
